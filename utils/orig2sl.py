@@ -8,7 +8,7 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def loadInputFile(file_path):
+def loadInputFile(file_path, with_ans=True):
     passage = list()   # store passage [content,content,...]
     position = list()  # store position [article_id, start_pos, end_pos, entity_text, entity_type, ...]
     mentions = dict()  # store mentions[mention] = Type
@@ -16,15 +16,24 @@ def loadInputFile(file_path):
     with open(file_path, "r", encoding="utf8") as f:
         file_text = f.read().encode("utf-8").decode("utf-8-sig")
     data = file_text.split("\n\n--------------------\n\n")[:-1]
-    for eachData in data:
-        eachData = eachData.split("\n")
-        content = eachData[0]
-        passage.append(content)
-        annotations=eachData[1:]
-        for annot in annotations[1:]:
-            annot=annot.split('\t') #annot= article_id, start_pos, end_pos, entity_text, entity_type
-            position.extend(annot)
-            mentions[annot[3]]=annot[4]
+
+    if with_ans:
+        for eachData in data:
+            eachData = eachData.split("\n")
+            content = eachData[0]
+            passage.append(content)
+            annotations=eachData[1:]
+            for annot in annotations[1:]:
+                annot=annot.split('\t') #annot= article_id, start_pos, end_pos, entity_text, entity_type
+                position.extend(annot)
+                mentions[annot[3]]=annot[4]
+    else:
+        for eachData in data:
+            eachData = eachData.split("\n")
+            article_id = eachData[0]
+            content = eachData[1]
+            passage.append(content)
+
     return passage, position, mentions
 
 def SLFormatData(passage, position, out_file_path):
@@ -154,6 +163,19 @@ def SLFormatData(passage, position, out_file_path):
     # close output file
     outputfile.close()
 
+def SLFormatDataWithoutAns(passage, out_file_path):
+    if (os.path.isfile(out_file_path)):
+        os.remove(out_file_path)
+    outputfile = open(out_file_path, 'a', encoding= 'utf-8')
+
+    for eachPassage in passage:
+        for char in eachPassage:
+            outputfile.write(char+"\n")
+        outputfile.write(" \n")
+    
+    outputfile.close()
+
+
 if __name__ == "__main__":
     
     file_1 = "data/orig/SampleData_deid.txt"
@@ -163,6 +185,11 @@ if __name__ == "__main__":
     file_3 = "data/orig/development_1.txt"
     out_file_3 = "data/sl/development_1.txt"
 
-    for file, out_file in zip([file_1, file_2, file_3],[out_file_1, out_file_2, out_file_3]):
+    ## with ans
+    for file, out_file in zip([file_1, file_2],[out_file_1, out_file_2]):
         passage, position, mentions = loadInputFile(file)
         SLFormatData(passage, position, out_file)
+    
+    ## without ans
+    passage, position, mentions = loadInputFile(file_3, with_ans=False)
+    SLFormatDataWithoutAns(passage, out_file_3)
