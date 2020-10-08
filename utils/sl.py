@@ -246,7 +246,7 @@ def write_predictions_to_file(writer: TextIO, test_input_reader: TextIO, preds_l
             if not preds_list[example_id]:
                 example_id += 1
         elif preds_list[example_id]:
-            output_line = line.split()[0] + " " + line.split()[1] + " " + preds_list[example_id].pop(0) + "\n"
+            output_line = line.rstrip() + " " + preds_list[example_id].pop(0) + "\n"
             writer.write(output_line)
         else:
             output_line = line.rstrip() + " " + "No prediciton due to limitation of max-seq-length" + "\n"
