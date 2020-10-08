@@ -160,7 +160,9 @@ if __name__ == "__main__":
     out_file_1 = "data/sl/SampleData_deid.txt"
     file_2 = "data/orig/train_1_update.txt"
     out_file_2 = "data/sl/train_1_update.txt"
+    file_3 = "data/orig/development_1.txt"
+    out_file_3 = "data/sl/development_1.txt"
 
-    for file, out_file in zip([file_1, file_2],[out_file_1, out_file_2]):
+    for file, out_file in zip([file_1, file_2, file_3],[out_file_1, out_file_2, out_file_3]):
         passage, position, mentions = loadInputFile(file)
         SLFormatData(passage, position, out_file)
