@@ -241,7 +241,7 @@ def convert_examples_to_features(
 def write_predictions_to_file(writer: TextIO, test_input_reader: TextIO, preds_list: List):
     example_id = 0
     for line in test_input_reader:
-        if line.startswith("-DOCSTART-") or line == "" or line == "\n":
+        if line.startswith("-DOCSTART-") or line == "" or line == "\n" or line == " \n":
             writer.write(line)
             if not preds_list[example_id]:
                 example_id += 1
