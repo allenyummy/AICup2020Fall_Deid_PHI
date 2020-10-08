@@ -249,9 +249,9 @@ def write_predictions_to_file(writer: TextIO, test_input_reader: TextIO, preds_l
             output_line = line.split()[0] + " " + line.split()[1] + " " + preds_list[example_id].pop(0) + "\n"
             writer.write(output_line)
         else:
-            output_line = line.split()[0] + " " + line.split()[1] + " " + "No prediciton due to limitation of max-seq-length" + "\n"
+            output_line = line.rstrip() + " " + "No prediciton due to limitation of max-seq-length" + "\n"
             writer.write(output_line)
-            logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
+            logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.rstrip())
 
 def get_labels(path: str) -> List[str]:
     with open(path, "r") as f:
