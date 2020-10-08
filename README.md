@@ -1,0 +1,1 @@
+# AI Cup 2020 De-identification of Personal Health Information
