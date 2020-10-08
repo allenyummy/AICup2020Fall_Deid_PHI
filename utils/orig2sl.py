@@ -156,7 +156,11 @@ def SLFormatData(passage, position, out_file_path):
 
 if __name__ == "__main__":
     
-    file = "data/orig/SampleData_deid.txt"
-    out_file = "data/sl/SampleData_deid.txt"
-    passage, position, mentions = loadInputFile(file)
-    SLFormatData(passage, position, out_file)
+    file_1 = "data/orig/SampleData_deid.txt"
+    out_file_1 = "data/sl/SampleData_deid.txt"
+    file_2 = "data/orig/train_1_update.txt"
+    out_file_2 = "data/sl/train_1_update.txt"
+
+    for file, out_file in zip([file_1, file_2],[out_file_1, out_file_2]):
+        passage, position, mentions = loadInputFile(file)
+        SLFormatData(passage, position, out_file)
