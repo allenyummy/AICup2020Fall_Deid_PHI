@@ -225,8 +225,8 @@ def convert_examples_to_features(
                 )
             )
         else:
-            child_tokens = tokens[max_real_tokens_length*i: -1]
-            child_label_ids = label_ids[max_real_tokens_length*i: -1]
+            child_tokens = tokens[max_real_tokens_length*i:]
+            child_label_ids = label_ids[max_real_tokens_length*i:]
         
             child_tokens += [sep_token]
             child_label_ids += [pad_token_label_id]
