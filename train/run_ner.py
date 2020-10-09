@@ -230,12 +230,29 @@ def main():
         if training_args.do_predict:
             predictions, label_ids, metrics = trainer.predict(test_dataset)
             preds_list, _ = align_predictions(predictions, label_ids)
+
+            concat_preds_list = []
+            temp = []
+            for i in range(len(preds_list)):
+              if not temp:
+                if len(preds_list[i]) < 510:
+                  concat_preds_list.append(preds_list[i])
+                else:
+                  temp.extend(preds_list[i])
+              else:
+                if len(preds_list[i]) < 510:
+                  temp.extend(preds_list[i])
+                  concat_preds_list.append(temp)
+                  temp = []
+                else:
+                  temp.extend(preds_list[i])
+
             test_predictions_file = os.path.join(
                 training_args.output_dir, "test_predictions.txt")
             if trainer.is_world_master():
                 with open(test_predictions_file, "w", encoding="utf-8") as writer:
                     with open(os.path.join(data_args.data_dir, data_args.test_filename), "r", encoding="utf-8") as f:
-                        write_predictions_to_file(writer, f, preds_list)
+                        write_predictions_to_file(writer, f, concat_preds_list)
 
     elif sys.argv[1] == "mrc":
 
