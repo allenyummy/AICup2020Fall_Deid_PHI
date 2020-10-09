@@ -45,6 +45,11 @@ class SLDataArguments:
             "than this will be truncated, sequences shorter will be padded."
         }
     )
+    doc_stride: int = field(
+        default=128,
+        metadata={
+            "help": "When splitting up a long document into chunks, how much stride to take between chunks."},
+    )
 
 
 @dataclass

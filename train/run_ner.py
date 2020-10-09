@@ -131,6 +131,7 @@ def main():
                 labels=labels,
                 model_type=config.model_type,
                 max_seq_length=task_args.max_seq_length,
+                doc_stride=task_args.doc_stride,
                 overwrite_cache=data_args.overwrite_cache,
             )
             if training_args.do_train or training_args.do_eval
@@ -144,6 +145,7 @@ def main():
                 labels=labels,
                 model_type=config.model_type,
                 max_seq_length=task_args.max_seq_length,
+                doc_stride=task_args.doc_stride,
                 overwrite_cache=data_args.overwrite_cache,
             )
             if training_args.do_train or training_args.do_eval
@@ -157,6 +159,7 @@ def main():
                 labels=labels,
                 model_type=config.model_type,
                 max_seq_length=task_args.max_seq_length,
+                doc_stride=task_args.doc_stride,
                 overwrite_cache=data_args.overwrite_cache,
             )
             if training_args.do_predict

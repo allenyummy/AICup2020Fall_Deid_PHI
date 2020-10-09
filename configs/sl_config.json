@@ -5,6 +5,7 @@
     "dev_filename": "SampleData_deid.txt",
     "test_filename": "development_1.txt",
     "max_seq_length": 512,
+    "doc_stride": 128,
     "overwrite_cache": false,
     "return_dict": true,
     "model_name_or_path": "hfl/chinese-bert-wwm",
