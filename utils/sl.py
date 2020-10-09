@@ -45,6 +45,7 @@ class NerAsSLDataset(Dataset):
         labels: List[str],
         model_type: str,
         max_seq_length: Optional[int]=None,
+        doc_stride: Optional[int]=None,
         overwrite_cache=False
         ):
         self.set = filename.split(".")[0]
@@ -69,6 +70,7 @@ class NerAsSLDataset(Dataset):
                     examples,
                     labels,
                     max_seq_length,
+                    doc_stride,
                     tokenizer,
                     cls_token_at_end=bool(model_type in ["xlnet"]),  # xlnet has a cls token at the end
                     cls_token=tokenizer.cls_token,
@@ -115,6 +117,7 @@ def convert_examples_to_features(
     examples: List[InputExample],
     labels: List[str],
     max_seq_length: int,
+    doc_stride: int,
     tokenizer: PreTrainedTokenizer,
     cls_token_at_end=False,
     cls_token="[CLS]",
@@ -154,88 +157,135 @@ def convert_examples_to_features(
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
                 label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
 
-        # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
+        
+        i = 0
         special_tokens_count = tokenizer.num_special_tokens_to_add()
-        if len(tokens) > max_seq_length - special_tokens_count:
-            tokens = tokens[: (max_seq_length - special_tokens_count)]
-            label_ids = label_ids[: (max_seq_length - special_tokens_count)]
+        max_real_tokens_length = max_seq_length - special_tokens_count
+        while len(tokens) > max_real_tokens_length*(i+1):
+            child_tokens = tokens[max_real_tokens_length*i: max_real_tokens_length*(i+1)]
+            child_label_ids = label_ids[max_real_tokens_length*i: max_real_tokens_length*(i+1)]
+            i += 1
+            
+            child_tokens += [sep_token]
+            child_label_ids += [pad_token_label_id]
+            if sep_token_extra:
+                # roberta uses an extra separator b/w pairs of sentences
+                child_tokens += [sep_token]
+                child_label_ids += [pad_token_label_id]
+            segment_ids = [sequence_a_segment_id] * len(child_tokens)
 
-        # The convention in BERT is:
-        # (a) For sequence pairs:
-        #  tokens:   [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]
-        #  type_ids:   0   0  0    0    0     0       0   0   1  1  1  1   1   1
-        # (b) For single sequences:
-        #  tokens:   [CLS] the dog is hairy . [SEP]
-        #  type_ids:   0   0   0   0  0     0   0
-        #
-        # Where "type_ids" are used to indicate whether this is the first
-        # sequence or the second sequence. The embedding vectors for `type=0` and
-        # `type=1` were learned during pre-training and are added to the wordpiece
-        # embedding vector (and position vector). This is not *strictly* necessary
-        # since the [SEP] token unambiguously separates the sequences, but it makes
-        # it easier for the model to learn the concept of sequences.
-        #
-        # For classification tasks, the first vector (corresponding to [CLS]) is
-        # used as as the "sentence vector". Note that this only makes sense because
-        # the entire model is fine-tuned.
-        tokens += [sep_token]
-        label_ids += [pad_token_label_id]
-        if sep_token_extra:
-            # roberta uses an extra separator b/w pairs of sentences
-            tokens += [sep_token]
-            label_ids += [pad_token_label_id]
-        segment_ids = [sequence_a_segment_id] * len(tokens)
+            if cls_token_at_end:
+                child_tokens += [cls_token]
+                child_label_ids += [pad_token_label_id]
+                segment_ids += [cls_token_segment_id]
+            else:
+                child_tokens = [cls_token] + child_tokens
+                child_label_ids = [pad_token_label_id] + child_label_ids
+                segment_ids = [cls_token_segment_id] + segment_ids
 
-        if cls_token_at_end:
-            tokens += [cls_token]
-            label_ids += [pad_token_label_id]
-            segment_ids += [cls_token_segment_id]
-        else:
-            tokens = [cls_token] + tokens
-            label_ids = [pad_token_label_id] + label_ids
-            segment_ids = [cls_token_segment_id] + segment_ids
+            input_ids = tokenizer.convert_tokens_to_ids(child_tokens)
 
-        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+            # The mask has 1 for real tokens and 0 for padding tokens. Only real
+            # tokens are attended to.
+            input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
 
-        # The mask has 1 for real tokens and 0 for padding tokens. Only real
-        # tokens are attended to.
-        input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
+            # Zero-pad up to the sequence length.
+            padding_length = max_seq_length - len(input_ids)
+            if pad_on_left:
+                input_ids = ([pad_token] * padding_length) + input_ids
+                input_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + input_mask
+                segment_ids = ([pad_token_segment_id] * padding_length) + segment_ids
+                child_label_ids = ([pad_token_label_id] * padding_length) + child_label_ids
+            else:
+                input_ids += [pad_token] * padding_length
+                input_mask += [0 if mask_padding_with_zero else 1] * padding_length
+                segment_ids += [pad_token_segment_id] * padding_length
+                child_label_ids += [pad_token_label_id] * padding_length
 
-        # Zero-pad up to the sequence length.
-        padding_length = max_seq_length - len(input_ids)
-        if pad_on_left:
-            input_ids = ([pad_token] * padding_length) + input_ids
-            input_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + input_mask
-            segment_ids = ([pad_token_segment_id] * padding_length) + segment_ids
-            label_ids = ([pad_token_label_id] * padding_length) + label_ids
-        else:
-            input_ids += [pad_token] * padding_length
-            input_mask += [0 if mask_padding_with_zero else 1] * padding_length
-            segment_ids += [pad_token_segment_id] * padding_length
-            label_ids += [pad_token_label_id] * padding_length
+            assert len(input_ids) == max_seq_length
+            assert len(input_mask) == max_seq_length
+            assert len(segment_ids) == max_seq_length
+            assert len(child_label_ids) == max_seq_length
 
-        assert len(input_ids) == max_seq_length
-        assert len(input_mask) == max_seq_length
-        assert len(segment_ids) == max_seq_length
-        assert len(label_ids) == max_seq_length
+            if ex_index < 5:
+                logger.info("*** Example ***")
+                logger.info("guid: %s", example.guid)
+                logger.info("tokens: %s", " ".join([str(x) for x in child_tokens]))
+                logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
+                logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))
+                logger.info("segment_ids: %s", " ".join([str(x) for x in segment_ids]))
+                logger.info("label_ids: %s", " ".join([str(x) for x in child_label_ids]))
+            
+            if "token_type_ids" not in tokenizer.model_input_names:
+                segment_ids = None
 
-        if ex_index < 5:
-            logger.info("*** Example ***")
-            logger.info("guid: %s", example.guid)
-            logger.info("tokens: %s", " ".join([str(x) for x in tokens]))
-            logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
-            logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))
-            logger.info("segment_ids: %s", " ".join([str(x) for x in segment_ids]))
-            logger.info("label_ids: %s", " ".join([str(x) for x in label_ids]))
-
-        if "token_type_ids" not in tokenizer.model_input_names:
-            segment_ids = None
-
-        features.append(
-            InputFeatures(
-                input_ids=input_ids, attention_mask=input_mask, token_type_ids=segment_ids, label_ids=label_ids
+            features.append(
+                InputFeatures(
+                    input_ids=input_ids, attention_mask=input_mask, token_type_ids=segment_ids, label_ids=child_label_ids
+                )
             )
-        )
+        else:
+            child_tokens = tokens[max_real_tokens_length*i: -1]
+            child_label_ids = label_ids[max_real_tokens_length*i: -1]
+        
+            child_tokens += [sep_token]
+            child_label_ids += [pad_token_label_id]
+            if sep_token_extra:
+                # roberta uses an extra separator b/w pairs of sentences
+                child_tokens += [sep_token]
+                child_label_ids += [pad_token_label_id]
+            segment_ids = [sequence_a_segment_id] * len(child_tokens)
+
+            if cls_token_at_end:
+                child_tokens += [cls_token]
+                child_label_ids += [pad_token_label_id]
+                segment_ids += [cls_token_segment_id]
+            else:
+                child_tokens = [cls_token] + child_tokens
+                child_label_ids = [pad_token_label_id] + child_label_ids
+                segment_ids = [cls_token_segment_id] + segment_ids
+
+            input_ids = tokenizer.convert_tokens_to_ids(child_tokens)
+
+            # The mask has 1 for real tokens and 0 for padding tokens. Only real
+            # tokens are attended to.
+            input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
+
+            # Zero-pad up to the sequence length.
+            padding_length = max_seq_length - len(input_ids)
+            if pad_on_left:
+                input_ids = ([pad_token] * padding_length) + input_ids
+                input_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + input_mask
+                segment_ids = ([pad_token_segment_id] * padding_length) + segment_ids
+                child_label_ids = ([pad_token_label_id] * padding_length) + child_label_ids
+            else:
+                input_ids += [pad_token] * padding_length
+                input_mask += [0 if mask_padding_with_zero else 1] * padding_length
+                segment_ids += [pad_token_segment_id] * padding_length
+                child_label_ids += [pad_token_label_id] * padding_length
+
+            assert len(input_ids) == max_seq_length
+            assert len(input_mask) == max_seq_length
+            assert len(segment_ids) == max_seq_length
+            assert len(child_label_ids) == max_seq_length
+
+            if ex_index < 5:
+                logger.info("*** Example ***")
+                logger.info("guid: %s", example.guid)
+                logger.info("tokens: %s", " ".join([str(x) for x in child_tokens]))
+                logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
+                logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))
+                logger.info("segment_ids: %s", " ".join([str(x) for x in segment_ids]))
+                logger.info("label_ids: %s", " ".join([str(x) for x in child_label_ids]))
+
+            if "token_type_ids" not in tokenizer.model_input_names:
+                segment_ids = None
+
+            features.append(
+                InputFeatures(
+                    input_ids=input_ids, attention_mask=input_mask, token_type_ids=segment_ids, label_ids=child_label_ids
+                )
+            )
     return features
 
 def write_predictions_to_file(writer: TextIO, test_input_reader: TextIO, preds_list: List):
