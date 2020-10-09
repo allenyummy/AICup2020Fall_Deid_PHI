@@ -10,10 +10,10 @@
     "return_dict": true,
     "model_name_or_path": "hfl/chinese-bert-wwm",
     "output_dir": "outputs/",
-    "num_train_epochs": 20,
+    "num_train_epochs": 10,
     "per_gpu_train_batch_size": 4,
     "learning_rate": 5e-5,
-    "save_steps": 700,
+    "save_steps": 1000,
     "save_total_limit": 5,
     "seed": 1,
     "do_train": true,
@@ -21,5 +21,5 @@
     "do_predict": true,
     "logging_steps": 100,
     "evaluate_during_training": true,
-    "eval_steps": 30
+    "eval_steps": 300
 }
