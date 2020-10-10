@@ -38,6 +38,7 @@ from seqeval.metrics import (
     recall_score
 )
 from models.bert_sl import BertSLModel
+from models.bert_bilstm_crf import BertBiLSTMCRFSLModel
 
 logging.config.fileConfig('configs/logging.conf')
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ def main():
     if sys.argv[1] == "sl":
 
         #--- Prepare model ---#
-        model = BertSLModel.from_pretrained(
+        model = BertBiLSTMCRFSLModel.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
